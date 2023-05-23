@@ -46,10 +46,10 @@ void modifyTrivialVersion(const size_t &n, const size_t &numberEvent, const size
 
   auto processLambda = [&]()
   {
-    std::pair<time_t, int> tmp;
+    std::pair<time_t, size_t> tmp;
     while (true)
     {
-      bool isPrime = true;
+      // bool isPrime = true;
       {
         std::lock_guard lg(mtxProcess);
         if (quProcess.empty() && processEnd == globalCountEvent)
@@ -64,7 +64,7 @@ void modifyTrivialVersion(const size_t &n, const size_t &numberEvent, const size
       {
         if (!(tmp.second % i))
         {
-          isPrime = false;
+          // isPrime = false;
           break;
         }
       }
@@ -150,11 +150,10 @@ void trivialVersion(const size_t &n, const size_t &numberEvent, const size_t &nu
 
   auto processLambda = [&]()
   {
-    std::pair<time_t, int> tmp;
+    std::pair<time_t, size_t> tmp;
     while (true)
     {
-      bool isPrime = true;
-
+      // bool isPrime = true;
       {
         std::lock_guard lg(mtx);
 
@@ -173,7 +172,7 @@ void trivialVersion(const size_t &n, const size_t &numberEvent, const size_t &nu
       {
         if (!(tmp.second % i))
         {
-          isPrime = false;
+          // SisPrime = false;
           break;
         }
       }
@@ -198,30 +197,30 @@ void trivialVersion(const size_t &n, const size_t &numberEvent, const size_t &nu
 
 int main(int argc, char *argv[])
 {
+  srand(time(NULL));
+
   size_t numberEvent = 2, numberProcess = 5;
   size_t n = 16e7;
-  srand(time(NULL));
-  // std::cin >> numberEvent;
-  // std::cin >> n;
-  // std::cin >> numberProcess;
-  modifyTrivialVersion(n, numberEvent, numberProcess);
-  // trivialVersion(n, numberEvent, numberProcess);
-  //      if (argc == 0)
-  //{
-  //        std::cout << argc << std::endl;
-  //        trivialVersion(n, numberEvent, numberProcess);
-  //      }
-  //      else if (strcmp(argv[1], "modify") == 0)
-  //{
-  //        std::cout << "Run modify" << std::endl;
-  //        modifyTrivialVersion(n, numberEvent, numberProcess);
-  //      }
-  //      else
-  //{
-  //        std::cout << "Enought" << std::endl;
-  //        trivialVersion(n, numberEvent, numberProcess);
-  //      }
 
-  // trivialVersion(n, numberEvent, numberProcess);
+  numberEvent = std::strtoull(argv[1]);
+  n = std::strtoull(argv[2]);
+  numberProcess = std::strtoull(argv[3]);
+
+  if (argc == 3)
+  {
+    std::cout << "Default: trivial version." << std::endl;
+    trivialVersion(n, numberEvent, numberProcess);
+  }
+  else if (strcmp(argv[4], "modify") == 0)
+  {
+    std::cout << "Runned modify version." << std::endl;
+    modifyTrivialVersion(n, numberEvent, numberProcess);
+  }
+  else if (strcmp(argv[4], "trivial") == 0)
+  {
+    std::cout << "Runned trivial version." << std::endl;
+    trivialVersion(n, numberEvent, numberProcess);
+  }
+  std::cout << "Programm done" << std::endl;
   return 0;
 }
