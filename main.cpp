@@ -10,9 +10,18 @@
 #include <thread>
 #include <vector>
 
-// all threads have yoursel queue
+bool isPrime(size_t n)
+{
+  if (n == 2 || n == 3)
+    return true;
+  if (n % 2 == 0 || n < 2)
+    return false;
+  for (size_t i = 3; i * i <= n; i += 2)
+    if (n % i == 0)
+      return false;
+  return true;
+}
 
-// Two queue: first - generated event, second go to handler threads.
 void modifyTrivialVersion(const size_t &n, const size_t &numberEvent, const size_t &numberProcess)
 {
   size_t globalCountEvent = n * numberEvent;
@@ -21,26 +30,22 @@ void modifyTrivialVersion(const size_t &n, const size_t &numberEvent, const size
   std::atomic<size_t> evenEnd{0};
   std::atomic<size_t> processEnd{0};
   std::atomic<size_t> countEven{0};
-  std::list<std::pair<time_t, int>> quEvent, quProcess;
-  std::vector<std::thread> vecEvent{}, vecProcess{};
+  std::list<std::pair<time_t, int>> quEvent{};
+  std::list<std::pair<time_t, int>> quProcess{};
+  std::vector<std::thread> vecEvent{};
+  std::vector<std::thread> vecProcess{};
 
   auto evenLambda = [&]()
   {
     for (size_t i = 0; i < n; ++i)
     {
-      std::pair<time_t, int> tmp;
-
       {
         std::lock_guard lg(mtxEven);
         quEvent.push_back(std::pair<time_t, int>(std::chrono::system_clock::to_time_t(std::chrono::system_clock::now()), rand() % 1000001 + 1));
-        tmp = quEvent.back();
       }
 
       evenEnd.fetch_add(1);
       countEven.fetch_add(1);
-      // std::cout << "Created event"
-      //           << ":: event " << ctime(&tmp.first) << " number: " << tmp.second << std::endl
-      //           << std::endl;
     }
   };
 
@@ -49,7 +54,6 @@ void modifyTrivialVersion(const size_t &n, const size_t &numberEvent, const size
     std::pair<time_t, size_t> tmp;
     while (true)
     {
-      // bool isPrime = true;
       {
         std::lock_guard lg(mtxProcess);
         if (quProcess.empty() && processEnd == globalCountEvent)
@@ -60,24 +64,14 @@ void modifyTrivialVersion(const size_t &n, const size_t &numberEvent, const size
         quProcess.pop_front();
       }
 
-      for (size_t i = 2; i * i < tmp.second + 1; ++i)
-      {
-        if (!(tmp.second % i))
-        {
-          // isPrime = false;
-          break;
-        }
-      }
+      isPrime(tmp.second);
       processEnd.fetch_add(1);
-
-      // std::cout << "Process completed"
-      //           << ":: event " << ctime(&tmp.first) << " number: " << tmp.second << " is prime: " << isPrime << std::endl;
     }
   };
 
   auto managerLambda = [&]()
   {
-    double percent = globalCountEvent * 0.2 / numberProcess;
+    size_t percent = globalCountEvent * 0.2 / numberProcess;
     std::list<std::pair<time_t, int>> tmp;
     while (true)
     {
@@ -92,15 +86,11 @@ void modifyTrivialVersion(const size_t &n, const size_t &numberEvent, const size
         countEven = 0;
       }
       {
-        std::lock_guard lg(mtxProcess);
-        std::lock_guard lg1(mtxEven);
-        // std::cout << globalCountEvent - evenEnd << " ::::"
-        //           << "Size quProcess: " << quProcess.size() << " Size move: " << tmp.size() << std::endl;
-        quProcess.merge(std::move(tmp));
+        std::lock_guard lgProcess(mtxProcess);
+        std::lock_guard lgEven(mtxEven);
 
-        // perror("Error: ");
+        quProcess.merge(std::move(tmp));
       }
-      // std::cout << "manager ready" << std::endl;
     }
   };
 
@@ -122,7 +112,6 @@ void modifyTrivialVersion(const size_t &n, const size_t &numberEvent, const size
   return;
 }
 
-// trivial version: consumer -- producer. One queue, n threads generate event, m handlers compute prime number
 void trivialVersion(const size_t &n, const size_t &numberEvent, const size_t &numberProcess)
 {
   size_t globalCountEvent = n * numberEvent;
@@ -135,16 +124,12 @@ void trivialVersion(const size_t &n, const size_t &numberEvent, const size_t &nu
   {
     for (size_t i = 0; i < n; ++i)
     {
-      std::pair<time_t, int> tmp;
-
       {
         std::lock_guard lg(mtx);
-        quEvent.push(std::pair<time_t, int>(std::chrono::system_clock::to_time_t(std::chrono::system_clock::now()), rand() % 1000001 + 1));
-        // tmp = quEvent.back();
+        quEvent.push(std::pair<time_t, int>(std::chrono::system_clock::to_time_t(std::chrono::system_clock::now()),
+                                            rand() % 1000001 + 1));
       }
-
       evenEnd.fetch_add(1);
-      // std::cout << "Created event" << ":: event " << ctime(&tmp.first) << " number: " << tmp.second << std::endl << std::endl;
     }
   };
 
@@ -153,14 +138,11 @@ void trivialVersion(const size_t &n, const size_t &numberEvent, const size_t &nu
     std::pair<time_t, size_t> tmp;
     while (true)
     {
-      // bool isPrime = true;
       {
         std::lock_guard lg(mtx);
 
         if (quEvent.empty() && evenEnd.load() == globalCountEvent)
-        {
           break;
-        }
         else if (quEvent.empty())
           continue;
 
@@ -168,15 +150,7 @@ void trivialVersion(const size_t &n, const size_t &numberEvent, const size_t &nu
         quEvent.pop();
       }
 
-      for (size_t i = 2; i * i < tmp.second; ++i)
-      {
-        if (!(tmp.second % i))
-        {
-          // SisPrime = false;
-          break;
-        }
-      }
-      // std::cout << "Process completed" << ":: event " << ctime(&tmp.first) << " number: " << tmp.second << " is prime: " << isPrime << std::endl;
+      isPrime(tmp.second);
     }
   };
 
@@ -199,27 +173,32 @@ int main(int argc, char *argv[])
 {
   srand(time(NULL));
 
-  size_t numberEvent = 2, numberProcess = 5;
-  size_t n = 16e7;
+  size_t numberProducers = 0;
+  size_t numberConsumers = 0;
+  size_t n = 0;
+  char *end = nullptr;
 
-  numberEvent = std::strtoull(argv[1]);
-  n = std::strtoull(argv[2]);
-  numberProcess = std::strtoull(argv[3]);
+  numberProducers = std::strtoull(argv[1], &end, 10);
+
+  n = std::strtoull(argv[2], &end, 10);
+  numberConsumers = std::strtoull(argv[3], &end, 10);
+
+  std::cout << numberProducers << " " << n << " " << numberConsumers << std::endl;
 
   if (argc == 3)
   {
     std::cout << "Default: trivial version." << std::endl;
-    trivialVersion(n, numberEvent, numberProcess);
+    trivialVersion(n, numberProducers, numberConsumers);
   }
   else if (strcmp(argv[4], "modify") == 0)
   {
     std::cout << "Runned modify version." << std::endl;
-    modifyTrivialVersion(n, numberEvent, numberProcess);
+    modifyTrivialVersion(n, numberProducers, numberConsumers);
   }
   else if (strcmp(argv[4], "trivial") == 0)
   {
     std::cout << "Runned trivial version." << std::endl;
-    trivialVersion(n, numberEvent, numberProcess);
+    trivialVersion(n, numberProducers, numberConsumers);
   }
   std::cout << "Programm done" << std::endl;
   return 0;
